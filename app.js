@@ -16,6 +16,8 @@ const io = new Server(httpsServer, {
   cors: {
     origin: "http://localhost:3000",
     methods: ["GET", "POST"],
+    allowedHeaders: ["my-custom-header"],
+    credentials: true
   },
 });
 
@@ -68,9 +70,32 @@ const mediaCodecs = [
 
 io.on('connection', async socket => {
   // console.log(socket.id)
+  
   socket.emit('connection-success', {
     socketId: socket.id,
   })
+
+  //! 캔버스.js 관련 코드 시작 (연준)
+  socket.on('object-added', data => {
+    socket.broadcast.emit('new-add', data);
+ })
+ socket.on('imageobj-added', data => {
+   socket.broadcast.emit('new-addimg', data);
+})
+ socket.on('path-added', data => {
+   socket.broadcast.emit('new-addP', data);
+})
+ socket.on('object-modified', data => {
+    socket.broadcast.emit('new-modification', data);
+ })
+ socket.on('object-deleted', data => {
+   socket.broadcast.emit('deleteallcanvas', data);
+ })
+ socket.on('object-clear', data => {
+   socket.broadcast.emit('clearcanvas', data);
+ })
+ //! 캔버스.js 관련 코드 시작 끝
+
 
   const removeItems = (items, socketId, type) => {
     items.forEach(item => {
@@ -264,7 +289,8 @@ io.on('connection', async socket => {
         const producerSocket = peers[producerData.socketId].socket
         // use socket to send producer id to producer
         const socketName = peers[socketId].peerDetails.name
-        producerSocket.emit('new-producer', { producerId: id , socketName: socketName })
+        //Todo: 아래 emit 인자 내용 달라짐 -> 컨트롤러에서 수정 필요 
+        producerSocket.emit('new-producer', { producerId: id , socketName: socketName, socketId: socketId })
       }
     })
   }
@@ -393,6 +419,20 @@ io.on('connection', async socket => {
     const { consumer } = consumers.find(consumerData => consumerData.consumer.id === serverConsumerId)
     await consumer.resume()
   })
+
+  //!!!!!! 유나 합친 부분 (01/14)
+  socket.on('video-out', async({socketId , off}) =>{
+    const studentSocket = peers[socketId].socket
+    studentSocket.emit('student-video-controller', {off : off})
+    console.log( "🙊🙊🙊🙊🙊VIDEO" + socketId, off )
+    // producerSocket.emit('new-producer', { producerId: id, socketId : socketId })
+  }) 
+
+  socket.on('audio-out', async({socketId, off}) =>{
+    console.log( "🙊🙊🙊🙊🙊AUDIO" + socketId, off )
+    studentSocket.emit('student-audio-controller', {off : off})
+  })
+
 })
 
 const createWebRtcTransport = async (router) => {
